@@ -33,28 +33,48 @@
                             <h4 class="font-weight-bold text-center mb-2">Wind</h4>
                             <span class="d-flex justify-content-center">
                                 <img src="{{ asset('weather-assets') }}/wind-beaufort-2.svg" height="70" width="100">
-                                <p class="font-weight-bold my-auto" style="vertical-align: middle;">25 km/h</p>
+                                <p class="font-weight-bold my-auto" style="vertical-align: middle;">{{ isset($getDataForToday->wind_speed) ? $getDataForToday->wind_speed : "No Data Available" }} km/h</p>
                             </span>
                         </div>
                         <div class="col-md-3">
                             <h4 class="font-weight-bold text-center mb-2">Rainfall</h4>
                             <span class="d-flex justify-content-center">
                                 <img src="{{ asset('weather-assets') }}/rain.svg" height="70" width="100">
-                                <p class="font-weight-bold my-auto">0.2 %</p>
+                                <p class="font-weight-bold my-auto">{{ isset($getDataForToday->rainfall) ? $getDataForToday->rainfall : "No Data Available" }} %</p>
                             </span>
                         </div>
                         <div class="col-md-3">
                             <h4 class="font-weight-bold text-center mb-2">Temperature</h4>
                             <span class="d-flex justify-content-center">
                                 <img src="{{ asset('weather-assets') }}/thermometer-celsius.svg" height="70" width="100">
-                                <p class="font-weight-bold my-auto" style="vertical-align: middle;">25 degrees celsius</p>
+                                <p class="font-weight-bold my-auto" style="vertical-align: middle;">{{ isset($getDataForToday->temperature_mean) ? $getDataForToday->temperature_mean : "No Data Available" }} degrees celsius</p>
                             </span>
                         </div>
                         <div class="col-md-3">
                             <h4 class="font-weight-bold text-center mb-2">Wind Direction</h4>
                             <span class="d-flex justify-content-center">
                                 <img src="{{ asset('weather-assets') }}/windsock.svg" height="70" width="100">
-                                <p class="font-weight-bold my-auto">29.3 mph NW</p>
+                                @if ( (isset($getDataForToday->wind_direction) ? $getDataForToday->wind_direction : "") != "" )
+                                    @if($getDataForToday->wind_direction >= 337.5 || $getDataForToday->wind_direction < 22.5)
+                                        <p class="font-weight-bold my-auto" >North</p>
+                                    @elseif($getDataForToday->wind_direction >= 22.5 || $getDataForToday->wind_direction < 67.5)
+                                        <p class="font-weight-bold my-auto" >Northeast</p>
+                                    @elseif($getDataForToday->wind_direction >= 67.5 || $getDataForToday->wind_direction < 112.5)
+                                        <p class="font-weight-bold my-auto" >East</p>
+                                    @elseif($getDataForToday->wind_direction >= 112.5 || $getDataForToday->wind_direction < 157.5)
+                                        <p class="font-weight-bold my-auto" >Southeast</p>
+                                    @elseif($getDataForToday->wind_direction >= 157.5 || $getDataForToday->wind_direction < 202.5)
+                                        <p class="font-weight-bold my-auto" >South</p>
+                                    @elseif($getDataForToday->wind_direction >= 202.5 || $getDataForToday->wind_direction < 247.5)
+                                        <p class="font-weight-bold my-auto" >Southwest</p>
+                                    @elseif($getDataForToday->wind_direction >= 247.5 || $getDataForToday->wind_direction < 292.5)
+                                        <p class="font-weight-bold my-auto" >West</p>
+                                    @else
+                                        <p class="font-weight-bold my-auto" >Northwest</p>
+                                    @endif
+                                @else
+                                    <p class="font-weight-bold my-auto" style="color: black !important;">No Data Available</p>
+                                @endif
                             </span>
                         </div>
                     </div>
@@ -64,7 +84,23 @@
                         </div>
                     </div>
                     <div class="col-md-12 d-flex justify-content-around pl-0 pr-0">
-                        <div class="card" style="background-color: transparent;">
+                        @forelse ($getSevenDaysWeatherForecast as $weatherForecast)
+                            @php
+                                $carbonDate = \Carbon\Carbon::parse("{$weatherForecast->year}-{$weatherForecast->month}-{$weatherForecast->day}");
+                                $formattedDate = $carbonDate->format('l');
+                            @endphp
+                            <div class="card" style="background-color: transparent;">
+                                <div class="card-body">
+                                    <img src="{{ asset('weather-assets') }}/rain.svg" height="70" width="100">
+                                    <p class="text-center font-weight-bold" style="black; font-size: 9px;">{{ $formattedDate }}</p>
+                                    <p class="text-center font-weight-bold mt-4" style="font-size: 10px;">Chances of rainfall</p>
+                                    <p class="text-center font-weight-bold mt-2" style=" font-size: 10px;">{{ $weatherForecast->rainfall }}%</p>
+                                </div>
+                            </div>
+                        @empty
+                            <h5 class="font-weight-bold text-center" >No Data Available</h5>
+                        @endforelse
+                        {{-- <div class="card" style="background-color: transparent;">
                             <div class="card-body">
                                 <img src="{{ asset('weather-assets') }}/rain.svg" height="70" width="150">
                                 <p class="text-center font-weight-bold" style="font-size: 9px;">Sunday</p>
@@ -120,6 +156,7 @@
                                 <p class="text-center font-weight-bold mt-2" style="font-size: 10px;">0.5%</p>
                             </div>
                         </div>
+                        --}}
                     </div>
                 </div>
             </div>

@@ -13,7 +13,7 @@ df = pd.read_csv("Port Area.csv", index_col="DATE")
 
 last_date = df.index[-1]
 today = datetime.today().date()
-five_days_from_today = today + timedelta(days=5)
+five_days_from_today = today + timedelta(days=6)
 last_date = pd.Timestamp(last_date)
 date_range = pd.date_range(last_date + timedelta(days=1), five_days_from_today, freq='D')
 
@@ -93,12 +93,12 @@ def compute_rolling(weather, horizon, col):
     
 rolling_horizons = [3, 14]
 for horizon in rolling_horizons:
-    for col in ["tmax", "tmin", "rainfall"]:
+    for col in ["tmax", "tmin", "rainfall", "wind_direction", "wind_speed"]:
         weather = compute_rolling(weather, horizon, col)
 def expand_mean(df):
     return df.expanding(1).mean()
 
-for col in ["tmax", "tmin", "rainfall"]:
+for col in ["tmax", "tmin", "rainfall", "wind_direction", "wind_speed"]:
     weather[f"month_avg_{col}"] = weather[col].groupby(weather.index.month, group_keys=False).apply(expand_mean)
     weather[f"day_avg_{col}"] = weather[col].groupby(weather.index.day_of_year, group_keys=False).apply(expand_mean)
 
@@ -178,12 +178,12 @@ def save_to_database():
         if last_update is not None and date_object < last_update:
             continue
         # Extract values from the row
-        rainfall = row['day_avg_rainfall']
-        temperature_min = row['day_avg_tmin']
-        temperature_max = row['day_avg_tmax']        
-        temperature_mean = (temperature_min + temperature_max) / 2
-        wind_speed = row['wind_speed']
-        wind_direction = row['wind_direction']
+        rainfall = round(row['day_avg_rainfall'], 2)
+        temperature_min = round(row['day_avg_tmin'], 2)
+        temperature_max = round(row['day_avg_tmax'], 2)        
+        temperature_mean = round((temperature_min + temperature_max) / 2, 2)
+        wind_speed = round(row['day_avg_wind_speed'], 2)
+        wind_direction = round(row['day_avg_wind_direction'], 2)
 
         select_query = "SELECT * FROM weather WHERE year = %s AND month = %s AND day = %s"
         cursor.execute(select_query, (date_object.year, date_object.month, date_object.day))

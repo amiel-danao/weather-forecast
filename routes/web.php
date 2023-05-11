@@ -18,15 +18,15 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
-	$threeYearsAgo = Carbon::now()->subYears(3);
-    $sameDateToday = Carbon::now()->setYear($threeYearsAgo->year);
+	$threeYearsAgo = Carbon::now();//->subYears(3);
+    $sameDateToday = Carbon::now();//->setYear($threeYearsAgo->year);
 
 	$getPastDate = $threeYearsAgo->format('l, F j, Y h:i:s A');
 
 	$formattedDate = $sameDateToday->format('Y-m-d');
 	$explodedDate = explode('-', $formattedDate);
 
-	$getDataForToday = Weather::where('month', intval($explodedDate[1]))->where('day', intval($explodedDate[2]))->first();
+	$getDataForToday = Weather::where('year', intval($explodedDate[0]))->where('month', intval($explodedDate[1]))->where('day', intval($explodedDate[2]))->first();
 
 	$getSevenDaysWeatherForecast = Weather::where('year', intval($explodedDate[0]))->where('month', intval($explodedDate[1]))->whereBetween('day', [intval($explodedDate[2]), intval($explodedDate[2]) + 6])->get();
 

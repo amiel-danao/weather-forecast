@@ -106,7 +106,7 @@
                     <div class="col-md-12 d-flex justify-content-around pl-0 pr-0">
                         @forelse ($getSevenDaysWeatherForecast as $weatherForecast)
                             @php
-                                $carbonDate = \Carbon\Carbon::parse($weatherForecast->day);
+                                $carbonDate = \Carbon\Carbon::parse("{$weatherForecast->year}-{$weatherForecast->month}-{$weatherForecast->day}");
                                 $formattedDate = $carbonDate->format('l');
                             @endphp
                             <div class="card" style="background-color: transparent;">

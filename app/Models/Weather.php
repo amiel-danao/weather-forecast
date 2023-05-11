@@ -11,7 +11,7 @@ class Weather extends Model
 
     protected $tale = "weather";
     protected $guarded = "";
-    protected $casts = [ 'day' => 'datetime'];
+    // protected $casts = [ 'day' => 'datetime'];
 
     protected $fillable = [
         'year',
