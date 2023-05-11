@@ -1,13 +1,16 @@
 import pandas as pd
+import configparser
 from datetime import datetime, timedelta
 from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+import mysql.connector
+import os
+
+
+config = configparser.ConfigParser()
 
 df = pd.read_csv("Port Area.csv", index_col="DATE")
 
-# weather.reset_index(inplace=True)
-# last_date = f"{weather['MONTH'].iloc[-1]}/{weather['DAY'].iloc[-1]}/{weather['YEAR'].iloc[-1]}"
-# last_date = datetime.strptime(last_date, '%m/%d/%Y')
 last_date = df.index[-1]
 today = datetime.today().date()
 five_days_from_today = today + timedelta(days=5)
@@ -15,21 +18,12 @@ last_date = pd.Timestamp(last_date)
 date_range = pd.date_range(last_date + timedelta(days=1), five_days_from_today, freq='D')
 
 date_range_str = date_range.strftime('%m/%d/%Y')
-# date_range = date_range.astype(str)
 
 new_dates = pd.DataFrame(index=date_range_str)
-# new_dates.reset_index(inplace=True)
 new_dates = new_dates.rename(columns={'index': 'DATE'})
-# new_dates = new_dates[['DATE']]
-# new_dates = pd.DataFrame({'DATE': date_range})
-
-# new_dates['DATE'] = new_dates['DATE'].dt.date
 
 # Concatenate the new DataFrame with the original DataFrame
 df = pd.concat([df, new_dates])
-
-# Reorder the columns
-# weather = weather[weather.columns[::-1]]  # Reverse the column order
 
 print(df)
 
@@ -114,13 +108,107 @@ weather = weather.iloc[14:,:]
 weather = weather.fillna(0)
 predictors = weather.columns[~weather.columns.isin(["target",])]
 predictions = backtest(weather, rr, predictors)
-print(mean_absolute_error(predictions["actual"], predictions["prediction"]))
+# print(mean_absolute_error(predictions["actual"], predictions["prediction"]))
 
-print(mean_squared_error(predictions["actual"], predictions["prediction"]))
+# print(mean_squared_error(predictions["actual"], predictions["prediction"]))
 
-print(predictions.sort_values("diff", ascending=False))
+# print(predictions.sort_values("diff", ascending=False))
 
-print(predictions[-100:])
+# print(predictions[-100:])
 
 
 weather.to_csv('prediction.csv', header=True)
+
+def get_last_update():
+    last_update = None
+    ini_file_path = 'config.ini'
+
+    # Check if the INI file exists
+    if not os.path.exists(ini_file_path):
+        # Add a section and an option to the INI file
+        config.add_section('Settings')
+        # config.set('Settings', 'last_update', 'default_date_value')
+
+        # Save the ConfigParser object to the INI file
+        with open(ini_file_path, 'w') as config_file:
+            config.write(config_file)
+    else:
+        config.read(ini_file_path)
+
+        try:
+            # Access the values from the existing INI file
+            last_update = config.get('Settings', 'last_update')
+            last_update = datetime.strptime(last_update, '%Y-%m-%d')
+        except configparser.NoOptionError:
+            pass
+
+    return last_update
+
+def update_last():
+    today = datetime.today().date().strftime('%Y-%m-%d')
+    # config.set('Settings', 'last_update', today)
+    config['Settings'] = {'last_update': today}
+    with open('config.ini', 'w') as config_file:
+        config.write(config_file)
+
+
+def save_to_database():
+    
+    last_update = get_last_update()
+
+    # Establish connection to the MySQL server
+    cnx = mysql.connector.connect(
+        user='root',
+        password='',
+        host='localhost',
+        database='laravel'
+    )
+
+    # Create a cursor object
+    cursor = cnx.cursor()
+
+    # Load data from CSV using Pandas
+    data_frame = pd.read_csv('prediction.csv')
+
+    # Iterate over rows of the DataFrame
+    for index, row in data_frame.iterrows():
+        date_string = row[0]
+        date_object = datetime.strptime(date_string, '%Y-%m-%d')
+
+        if last_update is not None and date_object < last_update:
+            continue
+        # Extract values from the row
+        rainfall = row['day_avg_rainfall']
+        temperature_min = row['day_avg_tmin']
+        temperature_max = row['day_avg_tmax']        
+        temperature_mean = (temperature_min + temperature_max) / 2
+        wind_speed = row['wind_speed']
+        wind_direction = row['wind_direction']
+
+        select_query = "SELECT * FROM weather WHERE year = %s AND month = %s AND day = %s"
+        cursor.execute(select_query, (date_object.year, date_object.month, date_object.day))
+        existing_rows = cursor.fetchall()
+
+        if len(existing_rows) > 0:
+            print(f"Skipping row with date {date_string} as it already exists in the database.")
+            continue
+
+        # SQL query to insert a new row
+        insert_query = "INSERT INTO weather (year, month, day, rainfall, temperature_min, temperature_max, temperature_mean, wind_speed, wind_direction) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+
+        # Values for the new row
+        row_values = (date_object.year, date_object.month, date_object.day, rainfall, temperature_min, temperature_max, temperature_mean, wind_speed, wind_direction)
+
+        # Execute the query
+        cursor.execute(insert_query, row_values)
+
+    # Commit the changes to the database
+    cnx.commit()
+
+    # Close the cursor and the connection
+    cursor.close()
+    cnx.close()
+
+    update_last()
+
+save_to_database()
