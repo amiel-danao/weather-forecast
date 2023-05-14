@@ -7,54 +7,8 @@ import mysql.connector
 import os
 
 
-config = configparser.ConfigParser()
 
-df = pd.read_csv("Port Area.csv", index_col="DATE")
 
-last_date = df.index[-1]
-today = datetime.today().date()
-five_days_from_today = today + timedelta(days=6)
-last_date = pd.Timestamp(last_date)
-date_range = pd.date_range(last_date + timedelta(days=1), five_days_from_today, freq='D')
-
-date_range_str = date_range.strftime('%m/%d/%Y')
-
-new_dates = pd.DataFrame(index=date_range_str)
-new_dates = new_dates.rename(columns={'index': 'DATE'})
-
-# Concatenate the new DataFrame with the original DataFrame
-df = pd.concat([df, new_dates])
-
-print(df)
-
-df.to_csv('temp_csv.csv', header=True)
-
-# null_pct = weather.apply(pd.isnull).sum()/weather.shape[0]
-
-# valid_columns = weather.columns[null_pct < .05]
-
-# weather = weather[valid_columns].copy()
-weather = pd.read_csv("temp_csv.csv", index_col=0)
-
-weather.columns = weather.columns.str.lower()
-
-weather = weather.ffill()
-
-weather.apply(pd.isnull).sum()
-
-weather.apply(lambda x: (x == 9999).sum())
-
-print(weather.index)
-weather.index = pd.to_datetime(weather.index)
-weather.index.year.value_counts().sort_index()
-
-weather["target"] = weather.shift(-1)["tmax"]
-
-weather = weather.ffill()
-
-rr = Ridge(alpha=.1)
-# weather = weather.drop('date', axis=1)
-predictors = weather.columns[~weather.columns.isin(["target",])]
 
 def backtest(weather, model, predictors, start=3650, step=90):
     
@@ -75,51 +29,44 @@ def backtest(weather, model, predictors, start=3650, step=90):
         all_predictions.append(combined)
     return pd.concat(all_predictions)
 
-predictions = backtest(weather, rr, predictors)
 
 
-print(mean_absolute_error(predictions["actual"], predictions["prediction"]))
 
-predictions.sort_values("diff", ascending=False)
+# print(mean_absolute_error(predictions["actual"], predictions["prediction"]))
+
+# predictions.sort_values("diff", ascending=False)
 
 def pct_diff(old, new):
     return (new - old) / old
+
 
 def compute_rolling(weather, horizon, col):
     label = f"rolling_{horizon}_{col}"
     weather[label] = weather[col].rolling(horizon).mean()
     weather[f"{label}_pct"] = pct_diff(weather[label], weather[col])
     return weather
-    
-rolling_horizons = [3, 14]
-for horizon in rolling_horizons:
-    for col in ["tmax", "tmin", "rainfall", "wind_direction", "wind_speed"]:
-        weather = compute_rolling(weather, horizon, col)
+
 def expand_mean(df):
     return df.expanding(1).mean()
 
-for col in ["tmax", "tmin", "rainfall", "wind_direction", "wind_speed"]:
-    weather[f"month_avg_{col}"] = weather[col].groupby(weather.index.month, group_keys=False).apply(expand_mean)
-    weather[f"day_avg_{col}"] = weather[col].groupby(weather.index.day_of_year, group_keys=False).apply(expand_mean)
+def run_average(weather):
+    for col in ["tmax", "tmin", "rainfall", "wind_direction", "wind_speed"]:
+        weather[f"month_avg_{col}"] = weather[col].groupby(weather.index.month, group_keys=False).apply(expand_mean)
+        weather[f"day_avg_{col}"] = weather[col].groupby(weather.index.day_of_year, group_keys=False).apply(expand_mean)
 
-# remove the first 14 rows (because it has the missing values)
-weather = weather.iloc[14:,:]
-#find missing values and fill them in with 0, (some columns will still contains NAN when dividing 0 )
-weather = weather.fillna(0)
-predictors = weather.columns[~weather.columns.isin(["target",])]
-predictions = backtest(weather, rr, predictors)
-# print(mean_absolute_error(predictions["actual"], predictions["prediction"]))
+def run_rolling(weather):
+    rolling_horizons = [3, 14]
+    for horizon in rolling_horizons:
+        for col in ["tmax", "tmin", "rainfall", "wind_direction", "wind_speed"]:
+            weather = compute_rolling(weather, horizon, col)
 
-# print(mean_squared_error(predictions["actual"], predictions["prediction"]))
+    print('after rolling')
 
-# print(predictions.sort_values("diff", ascending=False))
-
-# print(predictions[-100:])
+    run_average(weather)
 
 
-weather.to_csv('prediction.csv', header=True)
 
-def get_last_update():
+def get_last_update(config):
     last_update = None
     ini_file_path = 'config.ini'
 
@@ -144,7 +91,7 @@ def get_last_update():
 
     return last_update
 
-def update_last():
+def update_last(config):
     today = datetime.today().date().strftime('%Y-%m-%d')
     # config.set('Settings', 'last_update', today)
     config['Settings'] = {'last_update': today}
@@ -152,9 +99,9 @@ def update_last():
         config.write(config_file)
 
 
-def save_to_database():
+def save_to_database(config):
     
-    last_update = get_last_update()
+    last_update = get_last_update(config)
 
     # Establish connection to the MySQL server
     cnx = mysql.connector.connect(
@@ -209,6 +156,87 @@ def save_to_database():
     cursor.close()
     cnx.close()
 
-    update_last()
+    update_last(config)
 
-save_to_database()
+
+
+def main():
+    config = configparser.ConfigParser()
+
+    df = pd.read_csv("Port Area.csv", index_col="DATE")
+
+    last_date = df.index[-1]
+    today = datetime.today().date()
+    five_days_from_today = today + timedelta(days=6)
+    last_date = pd.Timestamp(last_date)
+    date_range = pd.date_range(last_date + timedelta(days=1), five_days_from_today, freq='D')
+
+    date_range_str = date_range.strftime('%m/%d/%Y')
+
+    new_dates = pd.DataFrame(index=date_range_str)
+    new_dates = new_dates.rename(columns={'index': 'DATE'})
+
+    # Concatenate the new DataFrame with the original DataFrame
+    df = pd.concat([df, new_dates])
+
+    print(df)
+
+    df.to_csv('temp_csv.csv', header=True)
+
+    # null_pct = weather.apply(pd.isnull).sum()/weather.shape[0]
+
+    # valid_columns = weather.columns[null_pct < .05]
+
+    # weather = weather[valid_columns].copy()
+    weather = pd.read_csv("temp_csv.csv", index_col=0)
+
+    weather.columns = weather.columns.str.lower()
+
+    weather = weather.ffill()
+
+    weather.apply(pd.isnull).sum()
+
+    weather.apply(lambda x: (x == 9999).sum())
+
+    print(weather.index)
+    weather.index = pd.to_datetime(weather.index)
+    weather.index.year.value_counts().sort_index()
+
+    weather["target"] = weather.shift(-1)["tmax"]
+
+    weather = weather.ffill()
+
+    rr = Ridge(alpha=.1)
+    # weather = weather.drop('date', axis=1)
+    predictors = weather.columns[~weather.columns.isin(["target",])]
+
+    predictions = backtest(weather, rr, predictors)
+
+    run_rolling(weather)
+
+
+    # remove the first 14 rows (because it has the missing values)
+    # weather = weather.iloc[14:,:]
+    #find missing values and fill them in with 0, (some columns will still contains NAN when dividing 0 )
+    weather = weather.fillna(0)
+    predictors = weather.columns[~weather.columns.isin(["target",])]
+
+    # print(predictions[100:])
+
+    predictions = backtest(weather, rr, predictors)
+
+    # print(mean_absolute_error(predictions["actual"], predictions["prediction"]))
+
+    # print(mean_squared_error(predictions["actual"], predictions["prediction"]))
+
+    # print(predictions.sort_values("diff", ascending=False))
+
+    # print(predictions[100:])
+
+
+    weather.to_csv('prediction.csv', header=True)
+
+    save_to_database(config)
+
+if __name__ == "__main__":
+    main()
