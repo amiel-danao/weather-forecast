@@ -167,9 +167,9 @@ def main():
 
     last_date = df.index[-1]
     today = datetime.today().date()
-    five_days_from_today = today + timedelta(days=6)
+    fourtheen_days_from_today = today + timedelta(days=14)
     last_date = pd.Timestamp(last_date)
-    date_range = pd.date_range(last_date + timedelta(days=1), five_days_from_today, freq='D')
+    date_range = pd.date_range(last_date + timedelta(days=1), fourtheen_days_from_today, freq='D')
 
     date_range_str = date_range.strftime('%m/%d/%Y')
 
